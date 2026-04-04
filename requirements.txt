@@ -6,3 +6,4 @@ python-dotenv
 werkzeug
 gunicorn
 psycopg2-binary
+flask-swagger-ui

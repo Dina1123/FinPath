@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from flask_swagger_ui import get_swaggerui_blueprint
 from config import Config
 from extensions import db, jwt, cors
 
@@ -11,6 +12,14 @@ def create_app():
     db.init_app(app)
     jwt.init_app(app)
     cors.init_app(app, resources={r"/*": {"origins": "*"}})
+
+    # Swagger UI at /docs
+    swagger_bp = get_swaggerui_blueprint(
+        "/docs",
+        "/static/openapi.yaml",
+        config={"app_name": "FinPath API"},
+    )
+    app.register_blueprint(swagger_bp)
 
     # Register blueprints
     from routes.auth import auth_bp
