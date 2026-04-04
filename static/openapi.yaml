@@ -1,0 +1,466 @@
+openapi: 3.0.3
+info:
+  title: FinPath API
+  description: |
+    Financial wellness API for FinPath — helps underserved communities (gig workers,
+    recent immigrants, young adults) understand and improve their financial health.
+
+    ## Authentication
+    Most endpoints require a Bearer JWT token. Obtain one via `/auth/register` or `/auth/login`,
+    then pass it in the `Authorization` header:
+    ```
+    Authorization: Bearer <token>
+    ```
+  version: "2.0"
+
+servers:
+  - url: https://finpath-nx82.onrender.com
+    description: Production
+  - url: http://localhost:5000
+    description: Local development
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Email already registered"
+
+    Action:
+      type: object
+      properties:
+        key:
+          type: string
+          example: get_auto_insurance
+        title:
+          type: string
+          example: Get Auto Insurance
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [high, medium, low]
+        completed:
+          type: boolean
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [System]
+      responses:
+        "200":
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: FinPath API v2.0
+
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  example: Maria Garcia
+                email:
+                  type: string
+                  format: email
+                  example: maria@example.com
+                password:
+                  type: string
+                  format: password
+                  example: securepassword123
+                language:
+                  type: string
+                  enum: [en, es]
+                  default: en
+                  description: Preferred language for AI responses
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User created
+                  token:
+                    type: string
+                    description: JWT access token
+                  user_id:
+                    type: integer
+                    example: 1
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/login:
+    post:
+      summary: Login and get a JWT token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: maria@example.com
+                password:
+                  type: string
+                  format: password
+                  example: securepassword123
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT access token
+                  user_id:
+                    type: integer
+                    example: 1
+                  language:
+                    type: string
+                    example: en
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /onboarding:
+    post:
+      summary: Submit onboarding profile
+      description: |
+        Saves the user's financial profile, calculates their risk score,
+        and returns a personalized action plan. Can be called again to update the profile.
+      tags: [Onboarding]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                employment_type:
+                  type: string
+                  enum: [full_time, part_time, gig, unemployed]
+                  default: full_time
+                income_stability:
+                  type: string
+                  enum: [stable, variable, none]
+                  default: stable
+                has_auto_insurance:
+                  type: boolean
+                  default: false
+                has_health_insurance:
+                  type: boolean
+                  default: false
+                has_renters_insurance:
+                  type: boolean
+                  default: false
+                has_emergency_fund:
+                  type: boolean
+                  default: false
+                gig_driving:
+                  type: boolean
+                  default: false
+                  description: Whether the user drives for Uber, Lyft, DoorDash, etc.
+                financial_concern:
+                  type: string
+                  enum: [insurance, savings, debt, all]
+                  default: all
+            example:
+              employment_type: gig
+              income_stability: variable
+              has_auto_insurance: true
+              has_health_insurance: false
+              has_renters_insurance: false
+              has_emergency_fund: false
+              gig_driving: true
+              financial_concern: all
+      responses:
+        "201":
+          description: Profile saved with risk assessment and actions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Profile saved
+                  risk_score:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+                    example: 72
+                  risk_level:
+                    type: string
+                    enum: [low, medium, high, critical]
+                    example: high
+                  biggest_risk:
+                    type: string
+                    example: No health insurance as a gig worker
+                  actions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Action"
+        "401":
+          description: Missing or invalid token
+
+  /snapshot:
+    get:
+      summary: Get current financial snapshot
+      description: Returns the user's risk score, risk level, and coverage status for all financial areas.
+      tags: [Snapshot]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Snapshot data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  risk_score:
+                    type: integer
+                    example: 72
+                  risk_level:
+                    type: string
+                    enum: [low, medium, high, critical]
+                  biggest_risk:
+                    type: string
+                    example: No health insurance as a gig worker
+                  language:
+                    type: string
+                    example: en
+                  coverage:
+                    type: object
+                    properties:
+                      auto_insurance:
+                        type: object
+                        properties:
+                          covered:
+                            type: boolean
+                          label:
+                            type: string
+                            example: Auto Insurance
+                      health_insurance:
+                        type: object
+                        properties:
+                          covered:
+                            type: boolean
+                          label:
+                            type: string
+                      renters_insurance:
+                        type: object
+                        properties:
+                          covered:
+                            type: boolean
+                          label:
+                            type: string
+                      emergency_fund:
+                        type: object
+                        properties:
+                          covered:
+                            type: boolean
+                          label:
+                            type: string
+                      rideshare_coverage:
+                        type: object
+                        description: Only present if user is a gig driver
+                        properties:
+                          covered:
+                            type: boolean
+                          label:
+                            type: string
+        "404":
+          description: No profile found — complete onboarding first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid token
+
+  /actions:
+    get:
+      summary: Get personalized action plan
+      description: Returns a list of recommended financial actions with completion status for each.
+      tags: [Actions]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of actions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Action"
+        "404":
+          description: No profile found — complete onboarding first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid token
+
+  /actions/{action_key}:
+    patch:
+      summary: Mark an action as complete
+      description: |
+        Marks the specified action as completed. Also updates the user's profile coverage
+        fields and recalculates their risk score automatically.
+
+        **Valid action keys:**
+        - `get_auto_insurance`
+        - `get_rideshare_coverage`
+        - `get_health_insurance`
+        - `get_renters_insurance`
+        - `build_emergency_fund`
+      tags: [Actions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: action_key
+          in: path
+          required: true
+          schema:
+            type: string
+          example: get_health_insurance
+      responses:
+        "200":
+          description: Action marked complete, risk recalculated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Action 'get_health_insurance' marked complete"
+                  new_risk_score:
+                    type: integer
+                    example: 45
+                  new_risk_level:
+                    type: string
+                    enum: [low, medium, high, critical]
+                    example: medium
+        "404":
+          description: No profile found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid token
+
+  /ai/ask:
+    post:
+      summary: Ask the AI financial assistant
+      description: |
+        Asks FinPath a financial question. Responds in the user's preferred language (set at registration).
+
+        If `ANTHROPIC_API_KEY` is configured on the server, responses come from the Claude API.
+        Otherwise, a rule-based mock responds. The `powered_by` field in the response indicates which is active.
+      tags: [AI]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question:
+                  type: string
+                  example: Am I covered when driving for Uber?
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  question:
+                    type: string
+                  answer:
+                    type: string
+                  language:
+                    type: string
+                    example: en
+                  powered_by:
+                    type: string
+                    enum: [claude-api, local-mock]
+        "400":
+          description: Missing question field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No profile found — complete onboarding first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid token
