@@ -21,6 +21,7 @@ ALL_ACTIONS = [
             "Without it, you have a coverage gap."
         ),
         "statefarm_product": "State Farm Rideshare Insurance",
+        "resource_id": "rideshare_insurance",
     },
     {
         "key": "get_auto_insurance",
@@ -37,6 +38,7 @@ ALL_ACTIONS = [
             "and legal fees. Most states require at least liability coverage by law."
         ),
         "statefarm_product": "State Farm Auto Insurance",
+        "resource_id": "auto_insurance",
     },
     {
         "key": "get_health_insurance",
@@ -53,6 +55,7 @@ ALL_ACTIONS = [
             "If you're a gig worker or self-employed, check healthcare.gov for marketplace plans."
         ),
         "statefarm_product": None,
+        "resource_id": "health_insurance",
     },
     {
         "key": "build_emergency_fund",
@@ -69,6 +72,7 @@ ALL_ACTIONS = [
             "Start small — even $25/week adds up fast."
         ),
         "statefarm_product": None,
+        "resource_id": None,
     },
     {
         "key": "get_renters_insurance",
@@ -86,6 +90,7 @@ ALL_ACTIONS = [
             "does NOT cover your stuff."
         ),
         "statefarm_product": "State Farm Renters Insurance",
+        "resource_id": "renters_insurance",
     },
 ]
 
@@ -104,6 +109,7 @@ def generate_actions(profile) -> list:
             "education_term": a["education_term"],
             "education_card": a["education_card"],
             "statefarm_product": a["statefarm_product"],
+            "resource_id": a["resource_id"],
         }
         for a in top3
     ]

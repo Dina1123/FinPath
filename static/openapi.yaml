@@ -64,6 +64,19 @@ components:
           type: string
           nullable: true
           example: State Farm Auto Insurance
+        resource_id:
+          type: string
+          nullable: true
+          description: |
+            ID of the matching resource card. Use with `GET /resources/{resource_id}`.
+            Null for actions with no linked resource (e.g. build_emergency_fund).
+          enum:
+            - auto_insurance
+            - rideshare_insurance
+            - health_insurance
+            - renters_insurance
+            - null
+          example: health_insurance
         completed:
           type: boolean
           description: Only present on GET /actions responses
