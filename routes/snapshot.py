@@ -30,7 +30,7 @@ def snapshot():
         },
         "renters_insurance": {
             "covered": False,  # hackathon-safe until you collect this explicitly
-            "needed": profile.needs_renters_insurance,
+            "needed": (profile.needs_renters_insurance  & (profile.housing_type != "dorm" | profile.housing_type != "dorm")),
             "label": "Renters Insurance",
         },
         "emergency_fund": {
