@@ -20,10 +20,10 @@ def get_actions():
 
     actions = generate_actions(user.profile)
 
-    # Annotate each action with completion status
     completed_keys = {
         ap.action_key for ap in user.action_progress if ap.completed
     }
+
     for action in actions:
         action["completed"] = action["key"] in completed_keys
 
@@ -39,9 +39,11 @@ def complete_action(action_key):
     if not user.profile:
         return jsonify({"error": "No profile found. Complete onboarding first."}), 404
 
-    # Mark action complete (upsert)
+    profile = user.profile
+
     progress = ActionProgress.query.filter_by(
-        user_id=user_id, action_key=action_key
+        user_id=user_id,
+        action_key=action_key
     ).first()
 
     if not progress:
@@ -51,18 +53,21 @@ def complete_action(action_key):
     progress.completed = True
     progress.completed_at = datetime.utcnow()
 
-    # Update profile coverage field if applicable
-    profile = user.profile
-    if action_key == "get_auto_insurance" or action_key == "get_rideshare_coverage":
+    # Update profile fields where the action directly changes known state
+    if action_key in {"get_auto_insurance", "get_rideshare_coverage"}:
         profile.has_auto_insurance = True
+
     elif action_key == "get_health_insurance":
         profile.has_health_insurance = True
-    elif action_key == "get_renters_insurance":
-        profile.has_renters_insurance = True
+
     elif action_key == "build_emergency_fund":
         profile.has_emergency_fund = True
 
-    # Recalculate risk after update
+    # Hackathon note:
+    # We do NOT update renters coverage here because the current Profile model
+    # does not store `has_renters_insurance`; it only stores whether renters
+    # insurance is relevant via `needs_renters_insurance`.
+
     risk = calculate_risk(profile)
     profile.risk_score = risk["risk_score"]
     profile.risk_level = risk["risk_level"]

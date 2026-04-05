@@ -26,20 +26,25 @@ def _call_claude(profile, question: str, language: str) -> str:
     )
 
     coverage_summary = (
-        f"- Employment: {profile.employment_type}\n"
-        f"- Income stability: {profile.income_stability}\n"
+        f"- Life situations: {profile.life_situations}\n"
+        f"- Is student: {profile.is_student}\n"
+        f"- Is international: {profile.is_international}\n"
+        f"- Country of origin: {profile.country_of_origin}\n"
+        f"- Entry route: {profile.entry_route}\n"
+        f"- Income sources: {profile.income_sources}\n"
+        f"- Housing type: {profile.housing_type}\n"
         f"- Has auto insurance: {profile.has_auto_insurance}\n"
         f"- Has health insurance: {profile.has_health_insurance}\n"
-        f"- Has renters insurance: {profile.has_renters_insurance}\n"
         f"- Has emergency fund: {profile.has_emergency_fund}\n"
-        f"- Does gig driving: {profile.gig_driving}\n"
+        f"- Needs renters insurance: {profile.needs_renters_insurance}\n"
+        f"- Likely gig driver: {profile.likely_gig_driver}\n"
         f"- Risk score: {profile.risk_score}/100 ({profile.risk_level})\n"
         f"- Biggest risk: {profile.biggest_risk}"
     )
 
     system_prompt = (
         "You are FinPath, a friendly financial wellness guide for underserved communities — "
-        "recent immigrants, young adults, and gig workers. "
+        "recent immigrants, young adults, gig workers, and students. "
         "You give clear, non-judgmental, actionable guidance in plain language. "
         "Always frame your response as educational guidance, not professional financial advice. "
         "End every response with: 'This is educational guidance, not professional financial advice.'"
@@ -82,29 +87,27 @@ def _mock_response(profile, question: str, language: str) -> str:
         if is_es:
             return (
                 "Tu seguro de auto personal generalmente NO te cubre cuando conduces para "
-                "aplicaciones como Uber o DoorDash. Necesitas un seguro adicional para conductores "
-                "de plataformas digitales. Habla con tu aseguradora para agregar esta cobertura — "
-                "suele costar entre $10 y $20 al mes." + disclaimer
+                "aplicaciones como Uber o DoorDash. Necesitas una cobertura adicional para "
+                "trabajo por aplicación o rideshare. Habla con tu aseguradora para revisar "
+                "esa protección." + disclaimer
             )
         return (
-            f"Your personal auto insurance generally does NOT cover you while driving for gig apps "
-            f"like Uber or DoorDash. You need a rideshare add-on to your policy. "
-            f"This typically costs $10–$20/month extra and closes a serious coverage gap. "
-            f"Based on your profile, this is your most urgent action right now." + disclaimer
+            "Your personal auto insurance generally does NOT cover you while driving for gig apps "
+            "like Uber or DoorDash. You may need rideshare or delivery-driver coverage. "
+            "Based on your profile, this is an important gap to review with your insurer." + disclaimer
         )
 
     # Health insurance
     if any(w in q for w in ["health", "medical", "doctor", "hospital", "salud", "médico"]):
         if is_es:
             return (
-                "Si no tienes seguro médico, una visita a urgencias puede costar más de $3,000. "
-                "Como trabajador independiente, puedes buscar planes en healthcare.gov — "
-                "muchos tienen subsidios según tus ingresos." + disclaimer
+                "Si no tienes seguro médico, una sola visita a urgencias puede ser muy costosa. "
+                "Puedes revisar opciones en healthcare.gov o programas estatales, según tus ingresos "
+                "y tu situación." + disclaimer
             )
         return (
-            "Without health insurance, a single ER visit can cost $3,000 or more. "
-            "As a gig or contract worker, check healthcare.gov for marketplace plans — "
-            "you may qualify for subsidized coverage based on your income." + disclaimer
+            "Without health insurance, even one ER visit can be very expensive. "
+            "You may want to check healthcare.gov or state programs based on your income and situation." + disclaimer
         )
 
     # Emergency fund
@@ -112,13 +115,11 @@ def _mock_response(profile, question: str, language: str) -> str:
         if is_es:
             return (
                 "Un fondo de emergencia es dinero reservado para gastos inesperados. "
-                "Empieza con una meta de $500. Con ingresos variables, intenta ahorrar "
-                "al menos el 10% de cada pago que recibas." + disclaimer
+                "Empieza con una meta pequeña, como $500, y luego sigue creciendo poco a poco." + disclaimer
             )
         return (
-            "An emergency fund is money set aside for unexpected costs — car repairs, medical bills, job loss. "
-            "Start with a $500 goal, then build toward 3 months of expenses. "
-            "With variable income, try to save at least 10% of every payment you receive." + disclaimer
+            "An emergency fund is money set aside for unexpected costs like car repairs, medical bills, "
+            "or a sudden loss of income. Start small, such as a $500 goal, then build from there." + disclaimer
         )
 
     # Auto insurance
@@ -126,13 +127,11 @@ def _mock_response(profile, question: str, language: str) -> str:
         if is_es:
             return (
                 "El seguro de auto es obligatorio en casi todos los estados. "
-                "Cubre los costos de un accidente — reparaciones, facturas médicas y honorarios legales. "
-                "Sin él, podrías enfrentar multas y responsabilidad financiera total." + disclaimer
+                "Ayuda a cubrir daños, lesiones y responsabilidad legal en un accidente." + disclaimer
             )
         return (
             "Auto insurance is legally required in almost every state. "
-            "It covers accident costs — repairs, medical bills, and legal fees. "
-            "Driving without it exposes you to fines and full financial liability." + disclaimer
+            "It helps cover damage, injuries, and legal liability after an accident." + disclaimer
         )
 
     # Renters insurance
@@ -140,43 +139,79 @@ def _mock_response(profile, question: str, language: str) -> str:
         if is_es:
             return (
                 "El seguro para inquilinos protege tus pertenencias en caso de robo, incendio "
-                "o daños por agua. Suele costar entre $10 y $20 al mes. "
-                "El seguro de tu arrendador NO cubre tus objetos personales." + disclaimer
+                "o ciertos daños. El seguro del propietario normalmente NO cubre tus objetos personales." + disclaimer
             )
         return (
-            "Renters insurance protects your belongings from theft, fire, and water damage. "
-            "It usually costs $10–$20/month. Your landlord's insurance does NOT cover your personal belongings." + disclaimer
+            "Renters insurance protects your belongings from theft, fire, and some types of damage. "
+            "Your landlord's insurance usually does NOT cover your personal belongings." + disclaimer
+        )
+
+    # Student / scholarship / FAFSA
+    if any(w in q for w in ["student", "scholarship", "fafsa", "college", "campus", "beca", "universidad"]):
+        if is_es:
+            return (
+                "Como estudiante, puede haber temas importantes como FAFSA, impuestos sobre ciertas becas, "
+                "y cobertura médica al depender de tus padres o de la escuela. "
+                "Tu situación exacta depende de tus ingresos y tu estatus." + disclaimer
+            )
+        return (
+            "As a student, important topics may include FAFSA, taxes on some scholarship income, "
+            "and health coverage through parents, school, or the marketplace. "
+            "Your exact situation depends on your income and status." + disclaimer
+        )
+
+    # International / immigrant
+    if any(w in q for w in ["international", "visa", "itin", "immigrant", "f1", "student visa"]):
+        if is_es:
+            return (
+                "Si eres estudiante internacional o nuevo en este país, puede haber reglas especiales "
+                "sobre impuestos, ITIN o restricciones de trabajo según tu visa. "
+                "Es importante revisar orientación específica para tu estatus." + disclaimer
+            )
+        return (
+            "If you are an international student or new to this country, there may be special rules "
+            "around taxes, ITINs, and work restrictions depending on your visa or immigration status. "
+            "It is important to review guidance specific to your situation." + disclaimer
         )
 
     # Generic fallback based on profile
     gaps = []
+
     if not profile.has_auto_insurance:
         gaps.append("auto insurance" if not is_es else "seguro de auto")
+
     if not profile.has_health_insurance:
         gaps.append("health insurance" if not is_es else "seguro médico")
+
     if not profile.has_emergency_fund:
         gaps.append("an emergency fund" if not is_es else "un fondo de emergencia")
+
+    if profile.needs_renters_insurance:
+        gaps.append("renters insurance" if not is_es else "seguro para inquilinos")
 
     if gaps and not is_es:
         return (
             f"Based on your profile, your biggest financial gaps right now are: {', '.join(gaps)}. "
-            f"Addressing these in order will significantly reduce your financial risk. "
-            f"Tap any action step in your plan for more details." + disclaimer
+            f"Addressing these step by step will reduce your financial risk. "
+            f"Check your action plan for the best next move." + disclaimer
         )
+
     if gaps and is_es:
         return (
-            f"Según tu perfil, tus mayores brechas financieras son: {', '.join(gaps)}. "
-            f"Resolverlas en orden reducirá significativamente tu riesgo financiero." + disclaimer
+            f"Según tu perfil, tus principales brechas financieras ahora son: {', '.join(gaps)}. "
+            f"Resolverlas paso a paso reducirá tu riesgo financiero. "
+            f"Revisa tu plan de acción para ver el mejor siguiente paso." + disclaimer
         )
 
     if is_es:
         return (
-            "Estoy aquí para ayudarte con preguntas sobre seguros, ahorros e independencia financiera. "
-            "¿Qué te gustaría saber?" + disclaimer
+            "Estoy aquí para ayudarte con preguntas sobre seguros, ahorros, impuestos básicos "
+            "y transición a la independencia financiera. ¿Qué te gustaría saber?" + disclaimer
         )
+
     return (
-        "I'm here to help with questions about insurance, savings, and financial independence. "
-        "What would you like to know?" + disclaimer
+        "I'm here to help with questions about insurance, savings, basic tax topics, "
+        "and financial independence. What would you like to know?" + disclaimer
     )
 
 
