@@ -9,7 +9,7 @@ ai_bp = Blueprint("ai", __name__)
 @ai_bp.route("/ai/ask", methods=["POST"])
 @jwt_required()
 def ask():
-    user_id = int(get_jwt_identity())
+    user_id = get_jwt_identity()
     user = User.query.get_or_404(user_id)
 
     if not user.profile:

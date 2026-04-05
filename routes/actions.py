@@ -12,7 +12,7 @@ actions_bp = Blueprint("actions", __name__)
 @actions_bp.route("/actions", methods=["GET"])
 @jwt_required()
 def get_actions():
-    user_id = int(get_jwt_identity())
+    user_id = get_jwt_identity()
     user = User.query.get_or_404(user_id)
 
     if not user.profile:
@@ -33,7 +33,7 @@ def get_actions():
 @actions_bp.route("/actions/<string:action_key>", methods=["PATCH"])
 @jwt_required()
 def complete_action(action_key):
-    user_id = int(get_jwt_identity())
+    user_id = get_jwt_identity()
     user = User.query.get_or_404(user_id)
 
     if not user.profile:

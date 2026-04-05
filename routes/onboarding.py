@@ -11,7 +11,7 @@ onboarding_bp = Blueprint("onboarding", __name__)
 @onboarding_bp.route("/onboarding", methods=["POST"])
 @jwt_required()
 def onboarding():
-    user_id = int(get_jwt_identity())
+    user_id = get_jwt_identity()
     user = User.query.get_or_404(user_id)
     data = request.get_json()
 

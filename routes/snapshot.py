@@ -8,7 +8,7 @@ snapshot_bp = Blueprint("snapshot", __name__)
 @snapshot_bp.route("/snapshot", methods=["GET"])
 @jwt_required()
 def snapshot():
-    user_id = int(get_jwt_identity())
+    user_id = get_jwt_identity()
     user = User.query.get_or_404(user_id)
     profile = user.profile
 

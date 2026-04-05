@@ -31,7 +31,7 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    token = create_access_token(identity=str(user.id))
+    token = create_access_token(identity=user.id)
     return jsonify({"message": "User created", "token": token, "user_id": user.id}), 201
 
 
@@ -45,5 +45,9 @@ def login():
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": "Invalid email or password"}), 401
 
-    token = create_access_token(identity=str(user.id))
-    return jsonify({"token": token, "user_id": user.id, "language": user.language}), 200
+    token = create_access_token(identity=user.id)
+    return jsonify({"token": token,
+                    "user_id": user.id,
+                    "language": user.language,
+                    "has_profile": user.profile is not None
+                    }), 200

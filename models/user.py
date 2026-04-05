@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from extensions import db
 
@@ -5,7 +6,7 @@ from extensions import db
 class User(db.Model):
     __tablename__ = "users"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
@@ -20,7 +21,7 @@ class Profile(db.Model):
     __tablename__ = "profiles"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False)
 
     # Onboarding quiz answers
     employment_type = db.Column(db.String(50))   # full_time, part_time, gig, unemployed
@@ -44,7 +45,7 @@ class ActionProgress(db.Model):
     __tablename__ = "action_progress"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False)
     action_key = db.Column(db.String(100), nullable=False)  # e.g. 'get_auto_insurance'
     completed = db.Column(db.Boolean, default=False)
     completed_at = db.Column(db.DateTime, nullable=True)
