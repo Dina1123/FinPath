@@ -3,21 +3,20 @@ from flask_swagger_ui import get_swaggerui_blueprint
 from config import Config
 from extensions import db, jwt, cors
 
-
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Initialize extensions
     db.init_app(app)
+    jwt.init_app(app)
+    cors.init_app(app, resources={r"/*": {"origins": "*"}})
+
+    # Import models so SQLAlchemy knows about them
+    from models.user import User, Profile, ActionProgress
 
     with app.app_context():
         db.create_all()
 
-    jwt.init_app(app)
-    cors.init_app(app, resources={r"/*": {"origins": "*"}})
-
-    # Swagger UI at /docs
     swagger_bp = get_swaggerui_blueprint(
         "/docs",
         "/static/openapi.yaml",
@@ -25,7 +24,6 @@ def create_app():
     )
     app.register_blueprint(swagger_bp)
 
-    # Register blueprints
     from routes.auth import auth_bp
     from routes.onboarding import onboarding_bp
     from routes.snapshot import snapshot_bp
@@ -38,14 +36,9 @@ def create_app():
     app.register_blueprint(actions_bp)
     app.register_blueprint(ai_bp)
 
-    # Health check
     @app.route("/health")
     def health():
         return jsonify({"status": "ok", "service": "FinPath API v2.0"}), 200
-
-    # Create tables on first run
-    with app.app_context():
-        db.create_all()
 
     return app
 
