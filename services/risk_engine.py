@@ -8,6 +8,7 @@ def calculate_risk(profile) -> dict:
     score = 0
     flags = []
 
+    # Core coverage gaps
     if not profile.has_auto_insurance:
         score += 25
         flags.append("No auto insurance")
@@ -20,19 +21,46 @@ def calculate_risk(profile) -> dict:
         score += 20
         flags.append("No emergency fund")
 
-    if not profile.has_renters_insurance:
+    # Housing-related risk
+    # New model means: if this is True, they likely need renters coverage
+    if profile.needs_renters_insurance:
         score += 10
-        flags.append("No renters insurance")
+        flags.append("May need renters insurance")
 
-    if profile.gig_driving and not profile.has_auto_insurance:
-        score += 15  # extra penalty — gig driving without coverage is critical
-        flags.append("Gig driving with no commercial coverage")
+    # Gig-worker / delivery risk
+    if profile.likely_gig_driver:
+        score += 10
+        flags.append("Gig or delivery work may require extra coverage")
 
-    if profile.income_stability == "variable":
+        if not profile.has_auto_insurance:
+            score += 15
+            flags.append("Gig driving with no auto insurance")
+
+    # Student-related complexity
+    if profile.is_student:
         score += 5
+        flags.append("Student financial transition risk")
 
-    if profile.income_stability == "none":
+    # International-related complexity
+    if profile.is_international:
         score += 10
+        flags.append("International status may add tax and coverage complexity")
+
+    # No-income / unstable-income signals from income_sources
+    income_sources = profile.income_sources or []
+
+    if "no_income" in income_sources:
+        score += 10
+        flags.append("No income currently")
+
+    variable_income_sources = {
+        "gig_delivery_work",
+        "freelance_contract_work",
+        "part_time_job",
+    }
+    if any(src in income_sources for src in variable_income_sources):
+        score += 5
+        flags.append("Variable income")
 
     score = min(score, 100)
 
