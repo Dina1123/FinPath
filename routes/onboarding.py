@@ -203,26 +203,40 @@ def onboarding():
     profile.risk_level = risk["risk_level"]
     profile.biggest_risk = risk["biggest_risk"]
 
+    if not profile_already_exists:
+        db.session.add(profile)
+
     try:
-        if not profile_already_exists:
-            db.session.add(profile)
 
-        db.session.commit()
-
+        assessment = generate_ai_assessment(profile, user.language)
+        profile.risk_score = assessment["risk_score"]
+        profile.risk_level = assessment["risk_level"]
+        profile.biggest_risk = assessment["biggest_risk"]
+        actions = assessment["actions"]
+    except Exception as e:
+        print("AI assessment failed, using fallback:", e)
+        risk = calculate_risk(profile)
+        profile.risk_score = risk["risk_score"]
+        profile.risk_level = risk["risk_level"]
+        profile.biggest_risk = risk["biggest_risk"]
         actions = generate_actions(profile)
 
-        return jsonify({
-            "message": "Profile saved",
-            "has_profile": True,
-            "risk_score": profile.risk_score,
-            "risk_level": profile.risk_level,
-            "biggest_risk": profile.biggest_risk,
-            "actions": actions,
-        }), 200 if profile_already_exists else 201
+    db.session.commit()
 
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            "error": "Failed to save profile",
-            "details": str(e)
-        }), 500
+    # actions = generate_actions(profile)
+
+    return jsonify({
+        "message": "Profile saved",
+        "has_profile": True,
+        "risk_score": profile.risk_score,
+        "risk_level": profile.risk_level,
+        "biggest_risk": profile.biggest_risk,
+        "actions": actions,
+    }), 200 if profile_already_exists else 201
+
+        # except Exception as e:
+        #     db.session.rollback()
+        #     return jsonify({
+        #         "error": "Failed to save profile",
+        #         "details": str(e)
+        #     }), 500
