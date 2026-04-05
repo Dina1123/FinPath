@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models.user import User, ActionProgress
-from services.action_generator import generate_actions, ALL_ACTIONS
+from services.action_generator import generate_actions, ALL_ACTIONS, serialize_action
 from services.risk_engine import calculate_risk
 
 actions_bp = Blueprint("actions", __name__)
@@ -18,7 +18,7 @@ def get_actions():
     if not user.profile:
         return jsonify({"error": "No profile found. Complete onboarding first."}), 404
 
-    actions = generate_actions(user.profile)
+    actions = generate_actions(user.profile, language=user.language)
 
     completed_keys = {
         ap.action_key for ap in user.action_progress if ap.completed
@@ -45,16 +45,7 @@ def get_completed_actions():
 
     action_map = {a["key"]: a for a in ALL_ACTIONS}
     actions = [
-        {
-            "key": key,
-            "title": action_map[key]["title"],
-            "description": action_map[key]["description"],
-            "education_term": action_map[key]["education_term"],
-            "education_card": action_map[key]["education_card"],
-            "statefarm_product": action_map[key]["statefarm_product"],
-            "resource_id": action_map[key]["resource_id"],
-            "completed": True,
-        }
+        {**serialize_action(action_map[key], language=user.language), "completed": True}
         for key in completed_keys
         if key in action_map
     ]

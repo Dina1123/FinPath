@@ -82,7 +82,7 @@ def refresh_snapshot():
             profile.biggest_risk = ai_result["biggest_risk"]
         powered_by = "claude-api"
     else:
-        actions = generate_actions(profile)
+        actions = generate_actions(profile, language=user.language)
         ai_insight = None
 
     db.session.commit()

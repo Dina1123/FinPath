@@ -15,14 +15,12 @@ import os
 # Real Claude API (activated when ANTHROPIC_API_KEY is present)
 # ---------------------------------------------------------------------------
 
-def _call_claude(profile, question: str, language: str) -> str:
-    import anthropic
-
+def _build_system_prompt(profile, language: str) -> str:
     lang_instruction = (
-        "Respond in Spanish. Use simple, clear language." if language == "es"
-        else "Respond in English. Use simple, plain language."
+        "Always respond in Spanish. Use simple, clear language."
+        if language == "es"
+        else "Always respond in English. Use simple, plain language."
     )
-
     coverage_summary = (
         f"- Life situations: {profile.life_situations}\n"
         f"- Is student: {profile.is_student}\n"
@@ -39,30 +37,36 @@ def _call_claude(profile, question: str, language: str) -> str:
         f"- Risk score: {profile.risk_score}/100 ({profile.risk_level})\n"
         f"- Biggest risk: {profile.biggest_risk}"
     )
-
-    system_prompt = (
+    return (
         "You are FinPath, a friendly financial wellness guide for underserved communities — "
         "recent immigrants, young adults, gig workers, and students. "
         "You give clear, non-judgmental, actionable guidance in plain language. "
         "Always frame your response as educational guidance, not professional financial advice. "
-        "End every response with: 'This is educational guidance, not professional financial advice.'"
+        "End every response with: 'This is educational guidance, not professional financial advice.'\n\n"
+        f"{lang_instruction}\n\n"
+        f"The user's financial profile (use this as context for all answers):\n{coverage_summary}"
     )
+
+
+def _call_claude(profile, question: str, language: str, history: list) -> str:
+    import anthropic
+
+    # Build messages: prior history + new question
+    messages = []
+    for turn in history:
+        role = turn.get("role")
+        content = turn.get("content", "")
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
+
+    messages.append({"role": "user", "content": question})
 
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=300,
-        system=system_prompt,
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    f"My financial profile:\n{coverage_summary}\n\n"
-                    f"{lang_instruction}\n\n"
-                    f"My question: {question}"
-                ),
-            }
-        ],
+        max_tokens=800,
+        system=_build_system_prompt(profile, language),
+        messages=messages,
     )
     return message.content[0].text
 
@@ -281,7 +285,7 @@ def get_ai_refresh(profile, language: str = "en") -> dict | None:
 # Public interface
 # ---------------------------------------------------------------------------
 
-def get_ai_response(profile, question: str, language: str = "en") -> str:
+def get_ai_response(profile, question: str, language: str = "en", history: list = None) -> str:
     if os.getenv("ANTHROPIC_API_KEY"):
-        return _call_claude(profile, question, language)
+        return _call_claude(profile, question, language, history or [])
     return _mock_response(profile, question, language)

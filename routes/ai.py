@@ -15,14 +15,19 @@ def ask():
     if not user.profile:
         return jsonify({"error": "No profile found. Complete onboarding first."}), 404
 
-    data = request.get_json()
+    data = request.get_json() or {}
     question = data.get("question", "").strip()
+    history = data.get("history", [])
 
     if not question:
         return jsonify({"error": "question is required"}), 400
 
+    # Validate history shape — must be list of {role, content} dicts
+    if not isinstance(history, list):
+        history = []
+
     language = user.language
-    answer = get_ai_response(user.profile, question, language)
+    answer = get_ai_response(user.profile, question, language, history=history)
 
     return jsonify({
         "question": question,

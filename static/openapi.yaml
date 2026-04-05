@@ -726,10 +726,26 @@ paths:
     post:
       summary: Ask the AI financial assistant
       description: |
-        Sends a question to FinPath AI. Responds in the user's preferred language.
+        Sends a question to FinPath AI. Responds in the user's preferred language (set at registration).
 
         Uses Claude API when `ANTHROPIC_API_KEY` is set on the server, otherwise
         falls back to a rule-based mock. The `powered_by` field indicates which.
+
+        ## Conversation history (context-aware chat)
+        Pass prior turns in the `history` array to give Claude full conversation context.
+        Flutter should maintain this list locally and append each exchange after every response.
+
+        ```json
+        {
+          "question": "So should I get the add-on before my next shift?",
+          "history": [
+            { "role": "user", "content": "Does my insurance cover Uber driving?" },
+            { "role": "assistant", "content": "Your personal auto insurance does NOT cover you..." }
+          ]
+        }
+        ```
+
+        On the first message, omit `history` or send an empty array.
       tags: [AI]
       security:
         - bearerAuth: []
@@ -743,7 +759,24 @@ paths:
               properties:
                 question:
                   type: string
-                  example: Am I covered when driving for Uber?
+                  example: So should I get the rideshare add-on before my next shift?
+                history:
+                  type: array
+                  description: Prior conversation turns for context. Omit or send [] for the first message.
+                  items:
+                    type: object
+                    required: [role, content]
+                    properties:
+                      role:
+                        type: string
+                        enum: [user, assistant]
+                      content:
+                        type: string
+                  example:
+                    - role: user
+                      content: Does my insurance cover Uber driving?
+                    - role: assistant
+                      content: Your personal auto insurance does NOT cover you while driving for Uber...
       responses:
         "200":
           description: AI response
@@ -898,10 +931,21 @@ paths:
       description: |
         Public endpoint — no auth required.
         Returns product cards for renters insurance, auto insurance,
-        rideshare coverage, and health insurance with cost info,
-        plain-English explanations, and links.
+        rideshare coverage, and health insurance.
+
+        Pass `?lang=es` to receive all text fields in Spanish.
+        Flutter should pass the user's language here: `GET /resources?lang=es`
       tags: [Resources]
       security: []
+      parameters:
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [en, es]
+            default: en
+          description: Language for all text fields. Defaults to English.
       responses:
         "200":
           description: List of resource cards
@@ -918,6 +962,7 @@ paths:
   /resources/{resource_id}:
     get:
       summary: Get a single resource card
+      description: Pass `?lang=es` to receive all text fields in Spanish.
       tags: [Resources]
       security: []
       parameters:
@@ -932,6 +977,14 @@ paths:
               - rideshare_insurance
               - health_insurance
           example: renters_insurance
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [en, es]
+            default: en
+          description: Language for all text fields. Defaults to English.
       responses:
         "200":
           description: Single resource card
