@@ -3,7 +3,7 @@ info:
   title: FinPath API
   description: |
     Financial wellness API for FinPath — helps underserved communities (gig workers,
-    recent immigrants, young adults) understand and improve their financial health.
+    recent immigrants, young adults, students) understand and improve their financial health.
 
     ## Authentication
     Most endpoints require a Bearer JWT token. Obtain one via `/auth/register` or `/auth/login`,
@@ -11,7 +11,17 @@ info:
     ```
     Authorization: Bearer <token>
     ```
-  version: "2.0"
+
+    ## Typical Flutter App Flow
+    1. `POST /auth/register` → save token
+    2. `POST /onboarding` → save risk + actions
+    3. `GET /snapshot` → show dashboard
+    4. `GET /actions` → show action plan
+    5. `POST /snapshot/refresh` → re-evaluate with AI
+    6. `POST /ai/ask` → chat assistant
+    7. `GET /resources` → show State Farm resource cards
+
+  version: "3.0"
 
 servers:
   - url: https://finpath-nx82.onrender.com
@@ -32,30 +42,90 @@ components:
       properties:
         error:
           type: string
-          example: "Email already registered"
+          example: "No profile found. Complete onboarding first."
 
     Action:
       type: object
       properties:
         key:
           type: string
-          example: get_auto_insurance
+          example: get_health_insurance
         title:
           type: string
-          example: Get Auto Insurance
+          example: Get health insurance
         description:
           type: string
-        priority:
+        education_term:
           type: string
-          enum: [high, medium, low]
+          example: health insurance
+        education_card:
+          type: string
+        statefarm_product:
+          type: string
+          nullable: true
+          example: State Farm Auto Insurance
         completed:
           type: boolean
+          description: Only present on GET /actions responses
+
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+          example: renters_insurance
+        category:
+          type: string
+          example: Renters Insurance
+        provider:
+          type: string
+          example: State Farm
+        title:
+          type: string
+        description:
+          type: string
+        typical_cost:
+          type: string
+          example: "$10–$20/month"
+        why_it_matters:
+          type: string
+        who_needs_it:
+          type: array
+          items:
+            type: string
+        learn_more_url:
+          type: string
+        action_key:
+          type: string
+          example: get_renters_insurance
+
+tags:
+  - name: Auth
+    description: Register, login, token refresh, current user
+  - name: Onboarding
+    description: Submit the 6-question financial profile quiz
+  - name: Snapshot
+    description: Financial health dashboard and AI refresh
+  - name: Actions
+    description: Personalized action plan and completion tracking
+  - name: AI
+    description: On-demand AI financial assistant
+  - name: Profile
+    description: View and update account details
+  - name: Resources
+    description: State Farm product resource cards
+  - name: System
+    description: Health check
 
 paths:
+
+  # ─── SYSTEM ──────────────────────────────────────────────────────────────────
+
   /health:
     get:
       summary: Health check
       tags: [System]
+      security: []
       responses:
         "200":
           description: Service is running
@@ -71,10 +141,13 @@ paths:
                     type: string
                     example: FinPath API v2.0
 
+  # ─── AUTH ────────────────────────────────────────────────────────────────────
+
   /auth/register:
     post:
       summary: Register a new user
       tags: [Auth]
+      security: []
       requestBody:
         required: true
         content:
@@ -101,7 +174,7 @@ paths:
                   description: Preferred language for AI responses
       responses:
         "201":
-          description: User created successfully
+          description: User created — store the token on device
           content:
             application/json:
               schema:
@@ -114,8 +187,9 @@ paths:
                     type: string
                     description: JWT access token
                   user_id:
-                    type: integer
-                    example: 1
+                    type: string
+                    format: uuid
+                    example: f47ac10b-58cc-4372-a567-0e02b2c3d479
         "400":
           description: Missing required fields
           content:
@@ -133,6 +207,7 @@ paths:
     post:
       summary: Login and get a JWT token
       tags: [Auth]
+      security: []
       requestBody:
         required: true
         content:
@@ -161,8 +236,8 @@ paths:
                     type: string
                     description: JWT access token
                   user_id:
-                    type: integer
-                    example: 1
+                    type: string
+                    format: uuid
                   language:
                     type: string
                     example: en
@@ -173,12 +248,141 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      description: |
+        Requires a **refresh token** (not the regular access token) in the Authorization header.
+        Use this to get a new access token when the current one expires.
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+        "401":
+          description: Missing or invalid refresh token
+
+  /auth/me:
+    get:
+      summary: Get current user and profile
+      description: Returns the logged-in user's account info and full financial profile in one call. Useful on app launch to restore state.
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      language:
+                        type: string
+                      created_at:
+                        type: string
+                        format: date-time
+                  has_profile:
+                    type: boolean
+                  profile:
+                    nullable: true
+                    type: object
+                    description: null if onboarding not completed
+                    properties:
+                      life_situations:
+                        type: array
+                        items:
+                          type: string
+                      is_student:
+                        type: boolean
+                      is_international:
+                        type: boolean
+                      country_of_origin:
+                        type: string
+                        nullable: true
+                      entry_route:
+                        type: string
+                        nullable: true
+                      income_sources:
+                        type: array
+                        items:
+                          type: string
+                      housing_type:
+                        type: string
+                        nullable: true
+                      has_health_insurance:
+                        type: boolean
+                      has_auto_insurance:
+                        type: boolean
+                      has_emergency_fund:
+                        type: boolean
+                      needs_renters_insurance:
+                        type: boolean
+                      likely_gig_driver:
+                        type: boolean
+                      risk_score:
+                        type: integer
+                      risk_level:
+                        type: string
+                        enum: [low, medium, high, critical]
+                      biggest_risk:
+                        type: string
+        "401":
+          description: Missing or invalid token
+
+  # ─── ONBOARDING ──────────────────────────────────────────────────────────────
+
   /onboarding:
     post:
-      summary: Submit onboarding profile
+      summary: Submit financial profile (6-question quiz)
       description: |
-        Saves the user's financial profile, calculates their risk score,
-        and returns a personalized action plan. Can be called again to update the profile.
+        Saves the user's financial profile, computes risk score, and returns a
+        personalized action plan. Can be called again to update the profile.
+
+        **Q1 — life_situations** (multi-select, pick all that apply):
+        - `full_time_student`
+        - `working_professional`
+        - `student_working`
+        - `recently_graduated`
+        - `new_to_country`
+        - `self_employed_gig_worker`
+        - `staying_with_family_no_fixed_income`
+
+        **Q2 — income_sources** (multi-select):
+        - `full_time_employment`
+        - `on_campus_job`
+        - `part_time_job`
+        - `gig_delivery_work`
+        - `freelance_contract_work`
+        - `scholarship_financial_aid`
+        - `parent_family_funding`
+        - `government_assistance`
+        - `investments_passive_income`
+        - `no_income`
+
+        **Q3 — housing_type** (single select):
+        - `rent` `own` `dorm` `with_family` `temporary` `other`
+
+        **entry_route** (only when `new_to_country` is in life_situations):
+        - `work_visa` `student_visa` `family_sponsorship` `asylum_refugee` `permanent_resident`
       tags: [Onboarding]
       security:
         - bearerAuth: []
@@ -189,46 +393,42 @@ paths:
             schema:
               type: object
               properties:
-                employment_type:
-                  type: string
-                  enum: [full_time, part_time, gig, unemployed]
-                  default: full_time
-                income_stability:
-                  type: string
-                  enum: [stable, variable, none]
-                  default: stable
-                has_auto_insurance:
+                life_situations:
+                  type: array
+                  items:
+                    type: string
+                  example: ["self_employed_gig_worker", "new_to_country"]
+                is_international:
                   type: boolean
                   default: false
+                country_of_origin:
+                  type: string
+                  example: Mexico
+                  description: Required when is_international is true
+                entry_route:
+                  type: string
+                  example: work_visa
+                  description: Required when new_to_country is in life_situations
+                income_sources:
+                  type: array
+                  items:
+                    type: string
+                  example: ["gig_delivery_work", "part_time_job"]
+                housing_type:
+                  type: string
+                  example: rent
                 has_health_insurance:
                   type: boolean
                   default: false
-                has_renters_insurance:
+                has_auto_insurance:
                   type: boolean
                   default: false
                 has_emergency_fund:
                   type: boolean
                   default: false
-                gig_driving:
-                  type: boolean
-                  default: false
-                  description: Whether the user drives for Uber, Lyft, DoorDash, etc.
-                financial_concern:
-                  type: string
-                  enum: [insurance, savings, debt, all]
-                  default: all
-            example:
-              employment_type: gig
-              income_stability: variable
-              has_auto_insurance: true
-              has_health_insurance: false
-              has_renters_insurance: false
-              has_emergency_fund: false
-              gig_driving: true
-              financial_concern: all
       responses:
         "201":
-          description: Profile saved with risk assessment and actions
+          description: Profile created with risk score and action plan
           content:
             application/json:
               schema:
@@ -237,6 +437,8 @@ paths:
                   message:
                     type: string
                     example: Profile saved
+                  has_profile:
+                    type: boolean
                   risk_score:
                     type: integer
                     minimum: 0
@@ -245,21 +447,30 @@ paths:
                   risk_level:
                     type: string
                     enum: [low, medium, high, critical]
-                    example: high
                   biggest_risk:
                     type: string
-                    example: No health insurance as a gig worker
+                    example: Gig driving with no auto insurance
                   actions:
                     type: array
                     items:
                       $ref: "#/components/schemas/Action"
+        "200":
+          description: Profile updated (re-onboarding)
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "401":
           description: Missing or invalid token
 
+  # ─── SNAPSHOT ────────────────────────────────────────────────────────────────
+
   /snapshot:
     get:
-      summary: Get current financial snapshot
-      description: Returns the user's risk score, risk level, and coverage status for all financial areas.
+      summary: Get financial health dashboard
+      description: Returns risk score, coverage status grid, and biggest gap. Use this to render the main dashboard screen.
       tags: [Snapshot]
       security:
         - bearerAuth: []
@@ -279,12 +490,12 @@ paths:
                     enum: [low, medium, high, critical]
                   biggest_risk:
                     type: string
-                    example: No health insurance as a gig worker
                   language:
                     type: string
                     example: en
                   coverage:
                     type: object
+                    description: Coverage grid. rideshare_coverage only present for gig drivers.
                     properties:
                       auto_insurance:
                         type: object
@@ -293,7 +504,6 @@ paths:
                             type: boolean
                           label:
                             type: string
-                            example: Auto Insurance
                       health_insurance:
                         type: object
                         properties:
@@ -305,6 +515,8 @@ paths:
                         type: object
                         properties:
                           covered:
+                            type: boolean
+                          needed:
                             type: boolean
                           label:
                             type: string
@@ -324,7 +536,7 @@ paths:
                           label:
                             type: string
         "404":
-          description: No profile found — complete onboarding first
+          description: No profile found
           content:
             application/json:
               schema:
@@ -332,16 +544,70 @@ paths:
         "401":
           description: Missing or invalid token
 
+  /snapshot/refresh:
+    post:
+      summary: Refresh risk score and actions with AI
+      description: |
+        Recalculates the rule-based risk score, then calls Claude AI to generate
+        a personalized insight and richer action descriptions.
+
+        Falls back to the rule-based action generator if no API key is configured
+        or Claude is unavailable. The `powered_by` field tells you which was used.
+
+        Call this after the user completes an action or wants updated guidance.
+      tags: [Snapshot]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Refreshed risk and AI-enhanced actions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  risk_score:
+                    type: integer
+                    example: 55
+                  risk_level:
+                    type: string
+                    enum: [low, medium, high, critical]
+                  biggest_risk:
+                    type: string
+                  ai_insight:
+                    type: string
+                    nullable: true
+                    description: 2-3 sentence personalized financial insight from Claude. null if using local fallback.
+                    example: "As a gig driver without auto insurance, you face serious legal and financial risk every time you drive. Getting covered should be your first priority."
+                  actions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Action"
+                  powered_by:
+                    type: string
+                    enum: [claude-api, local]
+                    example: claude-api
+        "404":
+          description: No profile found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid token
+
+  # ─── ACTIONS ─────────────────────────────────────────────────────────────────
+
   /actions:
     get:
       summary: Get personalized action plan
-      description: Returns a list of recommended financial actions with completion status for each.
+      description: Returns top 3 prioritized actions with completion status for each.
       tags: [Actions]
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: List of actions
+          description: Action plan
           content:
             application/json:
               schema:
@@ -352,7 +618,7 @@ paths:
                     items:
                       $ref: "#/components/schemas/Action"
         "404":
-          description: No profile found — complete onboarding first
+          description: No profile found
           content:
             application/json:
               schema:
@@ -364,8 +630,8 @@ paths:
     patch:
       summary: Mark an action as complete
       description: |
-        Marks the specified action as completed. Also updates the user's profile coverage
-        fields and recalculates their risk score automatically.
+        Marks the action complete, updates the user's profile coverage fields where
+        applicable, and recalculates the risk score automatically.
 
         **Valid action keys:**
         - `get_auto_insurance`
@@ -400,7 +666,6 @@ paths:
                   new_risk_level:
                     type: string
                     enum: [low, medium, high, critical]
-                    example: medium
         "404":
           description: No profile found
           content:
@@ -410,14 +675,16 @@ paths:
         "401":
           description: Missing or invalid token
 
+  # ─── AI ──────────────────────────────────────────────────────────────────────
+
   /ai/ask:
     post:
       summary: Ask the AI financial assistant
       description: |
-        Asks FinPath a financial question. Responds in the user's preferred language (set at registration).
+        Sends a question to FinPath AI. Responds in the user's preferred language.
 
-        If `ANTHROPIC_API_KEY` is configured on the server, responses come from the Claude API.
-        Otherwise, a rule-based mock responds. The `powered_by` field in the response indicates which is active.
+        Uses Claude API when `ANTHROPIC_API_KEY` is set on the server, otherwise
+        falls back to a rule-based mock. The `powered_by` field indicates which.
       tags: [AI]
       security:
         - bearerAuth: []
@@ -457,10 +724,179 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: No profile found — complete onboarding first
+          description: No profile found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "401":
           description: Missing or invalid token
+
+  # ─── PROFILE ─────────────────────────────────────────────────────────────────
+
+  /profile:
+    get:
+      summary: Get financial profile details
+      description: Returns the full stored financial profile for the logged-in user.
+      tags: [Profile]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Profile data (or has_profile false if not yet onboarded)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  has_profile:
+                    type: boolean
+                  message:
+                    type: string
+                    description: Only present when has_profile is false
+                  profile:
+                    nullable: true
+                    type: object
+                    properties:
+                      life_situations:
+                        type: array
+                        items:
+                          type: string
+                      is_student:
+                        type: boolean
+                      is_international:
+                        type: boolean
+                      country_of_origin:
+                        type: string
+                        nullable: true
+                      entry_route:
+                        type: string
+                        nullable: true
+                      income_sources:
+                        type: array
+                        items:
+                          type: string
+                      housing_type:
+                        type: string
+                        nullable: true
+                      has_health_insurance:
+                        type: boolean
+                      has_auto_insurance:
+                        type: boolean
+                      has_emergency_fund:
+                        type: boolean
+                      needs_renters_insurance:
+                        type: boolean
+                      likely_gig_driver:
+                        type: boolean
+                      risk_score:
+                        type: integer
+                      risk_level:
+                        type: string
+                        enum: [low, medium, high, critical]
+                      biggest_risk:
+                        type: string
+        "401":
+          description: Missing or invalid token
+
+    patch:
+      summary: Update account name or language
+      description: |
+        Updates the user's display name and/or preferred language.
+        Only `name` and `language` are accepted — all other fields are ignored.
+      tags: [Profile]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Maria Garcia
+                language:
+                  type: string
+                  enum: [en, es]
+                  example: es
+      responses:
+        "200":
+          description: Updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Profile updated
+                  name:
+                    type: string
+                  language:
+                    type: string
+        "400":
+          description: No valid fields or invalid language value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid token
+
+  # ─── RESOURCES ───────────────────────────────────────────────────────────────
+
+  /resources:
+    get:
+      summary: Get all State Farm resource cards
+      description: |
+        Public endpoint — no auth required.
+        Returns product cards for renters insurance, auto insurance,
+        rideshare coverage, and health insurance with cost info,
+        plain-English explanations, and links.
+      tags: [Resources]
+      security: []
+      responses:
+        "200":
+          description: List of resource cards
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resources:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Resource"
+
+  /resources/{resource_id}:
+    get:
+      summary: Get a single resource card
+      tags: [Resources]
+      security: []
+      parameters:
+        - name: resource_id
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - renters_insurance
+              - auto_insurance
+              - rideshare_insurance
+              - health_insurance
+          example: renters_insurance
+      responses:
+        "200":
+          description: Single resource card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+        "404":
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

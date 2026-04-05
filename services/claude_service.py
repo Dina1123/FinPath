@@ -214,6 +214,70 @@ def _mock_response(profile, question: str, language: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# AI-powered refresh (risk + actions re-evaluated by Claude)
+# ---------------------------------------------------------------------------
+
+def get_ai_refresh(profile, language: str = "en") -> dict | None:
+    """
+    Ask Claude to re-evaluate the user's risk and suggest personalized actions.
+    Returns a dict with keys: biggest_risk, ai_insight, actions (list of dicts).
+    Returns None if no API key is set (caller should fall back to rule-based).
+    """
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return None
+
+    import anthropic, json
+
+    lang_instruction = (
+        "Respond in Spanish." if language == "es" else "Respond in English."
+    )
+
+    profile_summary = (
+        f"- Life situations: {profile.life_situations}\n"
+        f"- Is student: {profile.is_student}\n"
+        f"- Is international: {profile.is_international}\n"
+        f"- Country of origin: {profile.country_of_origin}\n"
+        f"- Entry route: {profile.entry_route}\n"
+        f"- Income sources: {profile.income_sources}\n"
+        f"- Housing type: {profile.housing_type}\n"
+        f"- Has auto insurance: {profile.has_auto_insurance}\n"
+        f"- Has health insurance: {profile.has_health_insurance}\n"
+        f"- Has emergency fund: {profile.has_emergency_fund}\n"
+        f"- Needs renters insurance: {profile.needs_renters_insurance}\n"
+        f"- Likely gig driver: {profile.likely_gig_driver}\n"
+        f"- Current risk score: {profile.risk_score}/100 ({profile.risk_level})\n"
+        f"- Current biggest risk: {profile.biggest_risk}"
+    )
+
+    prompt = (
+        f"User financial profile:\n{profile_summary}\n\n"
+        f"{lang_instruction}\n\n"
+        "Based on this profile, return a JSON object with exactly these keys:\n"
+        "- biggest_risk: a short (under 15 words) plain-English description of their single biggest financial risk\n"
+        "- ai_insight: a 2-3 sentence personalized financial insight for this user\n"
+        "- actions: an array of exactly 3 objects, each with keys: key (snake_case), title (short), description (1-2 sentences), education_card (1 sentence plain explanation), statefarm_product (State Farm product name or null)\n\n"
+        "Only return valid JSON. No markdown, no extra text."
+    )
+
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=600,
+        system=(
+            "You are a financial wellness AI for underserved communities. "
+            "Always respond with valid JSON only. No markdown fences. "
+            "Frame all guidance as educational, not professional financial advice."
+        ),
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    try:
+        return json.loads(message.content[0].text)
+    except (json.JSONDecodeError, IndexError, KeyError):
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Public interface
 # ---------------------------------------------------------------------------
 

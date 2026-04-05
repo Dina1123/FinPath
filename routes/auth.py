@@ -80,3 +80,39 @@ def refresh():
     return jsonify({
         "access_token": access_token
     }), 200
+
+@auth_bp.route("/auth/me", methods=["GET"])
+@jwt_required()
+def get_current_user():
+    user_id = get_jwt_identity()
+    user = User.query.get_or_404(user_id)
+
+    profile = user.profile
+
+    return jsonify({
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "language": user.language,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+        },
+        "has_profile": profile is not None,
+        "profile": {
+            "life_situations": profile.life_situations,
+            "is_student": profile.is_student,
+            "is_international": profile.is_international,
+            "country_of_origin": profile.country_of_origin,
+            "entry_route": profile.entry_route,
+            "income_sources": profile.income_sources,
+            "housing_type": profile.housing_type,
+            "has_health_insurance": profile.has_health_insurance,
+            "has_auto_insurance": profile.has_auto_insurance,
+            "has_emergency_fund": profile.has_emergency_fund,
+            "needs_renters_insurance": profile.needs_renters_insurance,
+            "likely_gig_driver": profile.likely_gig_driver,
+            "risk_score": profile.risk_score,
+            "risk_level": profile.risk_level,
+            "biggest_risk": profile.biggest_risk,
+        } if profile else None
+    }), 200

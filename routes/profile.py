@@ -1,7 +1,6 @@
-# routes/profile.py
-
-from flask import Blueprint, jsonify
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from extensions import db
 from models.user import User
 
 profile_bp = Blueprint("profile", __name__)
@@ -14,6 +13,7 @@ def get_profile():
     user = User.query.get_or_404(user_id)
 
     profile = user.profile
+    language = user.language
 
     if not profile:
         return jsonify({
@@ -40,4 +40,38 @@ def get_profile():
             "risk_level": profile.risk_level,
             "biggest_risk": profile.biggest_risk,
         }
+    }), 200
+
+
+@profile_bp.route("/profile", methods=["PATCH"])
+@jwt_required()
+def update_profile():
+    user_id = get_jwt_identity()
+    user = User.query.get_or_404(user_id)
+    data = request.get_json() or {}
+
+    allowed = {"name", "language"}
+    updates = {k: v for k, v in data.items() if k in allowed}
+
+    if not updates:
+        return jsonify({"error": "No valid fields provided. Allowed: name, language"}), 400
+
+    if "language" in updates and updates["language"] not in {"en", "es"}:
+        return jsonify({"error": "language must be 'en' or 'es'"}), 400
+
+    if "name" in updates:
+        name = updates["name"].strip()
+        if not name:
+            return jsonify({"error": "name cannot be empty"}), 400
+        user.name = name
+
+    if "language" in updates:
+        user.language = updates["language"]
+
+    db.session.commit()
+
+    return jsonify({
+        "message": "Profile updated",
+        "name": user.name,
+        "language": user.language,
     }), 200
