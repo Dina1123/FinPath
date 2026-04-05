@@ -614,7 +614,7 @@ paths:
   /actions:
     get:
       summary: Get personalized action plan
-      description: Returns top 3 prioritized actions with completion status for each.
+      description: Returns top 3 prioritized actions for the user's profile, each with completion status.
       tags: [Actions]
       security:
         - bearerAuth: []
@@ -630,6 +630,38 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Action"
+        "404":
+          description: No profile found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid token
+
+  /actions/completed:
+    get:
+      summary: Get completed actions
+      description: Returns only actions the user has marked as complete, with full action details and a total count.
+      tags: [Actions]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Completed actions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Action"
+                  total:
+                    type: integer
+                    description: Number of completed actions
+                    example: 2
         "404":
           description: No profile found
           content:

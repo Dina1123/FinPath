@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models.user import User, ActionProgress
-from services.action_generator import generate_actions
+from services.action_generator import generate_actions, ALL_ACTIONS
 from services.risk_engine import calculate_risk
 
 actions_bp = Blueprint("actions", __name__)
@@ -20,14 +20,46 @@ def get_actions():
 
     actions = generate_actions(user.profile)
 
-    # completed_keys = {
-    #     ap.action_key for ap in user.action_progress if ap.completed
-    # }
+    completed_keys = {
+        ap.action_key for ap in user.action_progress if ap.completed
+    }
 
-    # for action in actions:
-    #     action["completed"] = action["key"] in completed_keys
+    for action in actions:
+        action["completed"] = action["key"] in completed_keys
 
     return jsonify({"actions": actions}), 200
+
+
+@actions_bp.route("/actions/completed", methods=["GET"])
+@jwt_required()
+def get_completed_actions():
+    user_id = get_jwt_identity()
+    user = User.query.get_or_404(user_id)
+
+    if not user.profile:
+        return jsonify({"error": "No profile found. Complete onboarding first."}), 404
+
+    completed_keys = {
+        ap.action_key for ap in user.action_progress if ap.completed
+    }
+
+    action_map = {a["key"]: a for a in ALL_ACTIONS}
+    actions = [
+        {
+            "key": key,
+            "title": action_map[key]["title"],
+            "description": action_map[key]["description"],
+            "education_term": action_map[key]["education_term"],
+            "education_card": action_map[key]["education_card"],
+            "statefarm_product": action_map[key]["statefarm_product"],
+            "resource_id": action_map[key]["resource_id"],
+            "completed": True,
+        }
+        for key in completed_keys
+        if key in action_map
+    ]
+
+    return jsonify({"actions": actions, "total": len(actions)}), 200
 
 
 @actions_bp.route("/actions/<string:action_key>", methods=["PATCH"])
