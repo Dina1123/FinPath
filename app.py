@@ -33,12 +33,14 @@ def create_app():
     from routes.snapshot import snapshot_bp
     from routes.actions import actions_bp
     from routes.ai import ai_bp
+    from routes.meta import meta_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(onboarding_bp)
     app.register_blueprint(snapshot_bp)
     app.register_blueprint(actions_bp)
     app.register_blueprint(ai_bp)
+    app.register_blueprint(meta_bp)
 
     @app.route("/health")
     def health():
