@@ -13,7 +13,7 @@ ALL_ACTIONS = [
             "A rideshare add-on fills that gap — it's usually $10–$20/month extra."
         ),
         "urgency": 1,
-        "condition": lambda p: p.gig_driving and not p.has_auto_insurance,
+        "condition": lambda p: p.likely_gig_driver and not p.has_auto_insurance,
         "education_term": "rideshare coverage",
         "education_card": (
             "Rideshare coverage is an add-on to your regular auto policy that protects you "
@@ -78,7 +78,7 @@ ALL_ACTIONS = [
             "It typically costs $10–$20/month and is often required by landlords."
         ),
         "urgency": 5,
-        "condition": lambda p: not p.has_renters_insurance,
+        "condition": lambda p: p.needs_renters_insurance,
         "education_term": "renters insurance",
         "education_card": (
             "Renters insurance covers your personal belongings if they're stolen or damaged, "
