@@ -203,16 +203,17 @@ def onboarding():
     profile.risk_level = risk["risk_level"]
     profile.biggest_risk = risk["biggest_risk"]
 
-    if not profile_already_exists:
-        db.session.add(profile)
 
     try:
+        if not profile_already_exists:
+            db.session.add(profile)
 
         assessment = generate_ai_assessment(profile, user.language)
         profile.risk_score = assessment["risk_score"]
         profile.risk_level = assessment["risk_level"]
         profile.biggest_risk = assessment["biggest_risk"]
         actions = assessment["actions"]
+        db.session.commit()
     except Exception as e:
         print("AI assessment failed, using fallback:", e)
         risk = calculate_risk(profile)
@@ -221,7 +222,6 @@ def onboarding():
         profile.biggest_risk = risk["biggest_risk"]
         actions = generate_actions(profile)
 
-    db.session.commit()
 
     # actions = generate_actions(profile)
 
