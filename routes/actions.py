@@ -20,12 +20,12 @@ def get_actions():
 
     actions = generate_actions(user.profile)
 
-    completed_keys = {
-        ap.action_key for ap in user.action_progress if ap.completed
-    }
+    # completed_keys = {
+    #     ap.action_key for ap in user.action_progress if ap.completed
+    # }
 
-    for action in actions:
-        action["completed"] = action["key"] in completed_keys
+    # for action in actions:
+    #     action["completed"] = action["key"] in completed_keys
 
     return jsonify({"actions": actions}), 200
 
