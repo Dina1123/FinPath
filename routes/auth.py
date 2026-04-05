@@ -1,6 +1,11 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    jwt_required,
+    get_jwt_identity,
+)
 from extensions import db
 from models.user import User
 
@@ -31,13 +36,22 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    token = create_access_token(identity=user.id)
-    return jsonify({"message": "User created", "token": token, "user_id": user.id}), 201
+    access_token = create_access_token(identity=user.id)
+    refresh_token = create_refresh_token(identity=user.id)
+
+    return jsonify({
+    "message": "User created",
+    "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user_id": user.id,
+        "language": user.language,
+        "has_profile": False,
+    }), 201
 
 
 @auth_bp.route("/auth/login", methods=["POST"])
 def login():
-    data = request.get_json()
+    data = request.get_json() or {}
     email = data.get("email", "").strip().lower()
     password = data.get("password", "")
 
@@ -45,9 +59,24 @@ def login():
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": "Invalid email or password"}), 401
 
-    token = create_access_token(identity=user.id)
-    return jsonify({"token": token,
-                    "user_id": user.id,
-                    "language": user.language,
-                    "has_profile": user.profile is not None
-                    }), 200
+    access_token = create_access_token(identity=user.id)
+    refresh_token = create_refresh_token(identity=user.id)
+
+    return jsonify({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user_id": user.id,
+        "language": user.language,
+        "has_profile": user.profile is not None,
+    }), 200
+
+
+@auth_bp.route("/auth/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    user_id = get_jwt_identity()
+    access_token = create_access_token(identity=user_id)
+
+    return jsonify({
+        "access_token": access_token
+    }), 200
