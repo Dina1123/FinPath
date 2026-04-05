@@ -10,8 +10,6 @@ flip USE_REAL_API = True below (or set it via environment variable).
 
 import os
 
-USE_REAL_API = bool(os.getenv("ANTHROPIC_API_KEY"))
-
 
 # ---------------------------------------------------------------------------
 # Real Claude API (activated when ANTHROPIC_API_KEY is present)
@@ -220,6 +218,6 @@ def _mock_response(profile, question: str, language: str) -> str:
 # ---------------------------------------------------------------------------
 
 def get_ai_response(profile, question: str, language: str = "en") -> str:
-    if USE_REAL_API:
+    if os.getenv("ANTHROPIC_API_KEY"):
         return _call_claude(profile, question, language)
     return _mock_response(profile, question, language)
