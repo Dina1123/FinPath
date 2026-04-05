@@ -14,8 +14,8 @@ def create_app():
     # Import models so SQLAlchemy knows about them
     from models.user import User, Profile, ActionProgress
 
-    with app.app_context():
-        db.create_all()
+    # with app.app_context():
+    #     db.create_all()
 
     swagger_bp = get_swaggerui_blueprint(
         "/docs",
