@@ -34,6 +34,7 @@ def create_app():
     from routes.actions import actions_bp
     from routes.ai import ai_bp
     from routes.meta import meta_bp
+    from routes.profile import profile_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(onboarding_bp)
@@ -41,6 +42,7 @@ def create_app():
     app.register_blueprint(actions_bp)
     app.register_blueprint(ai_bp)
     app.register_blueprint(meta_bp)
+    app.register_blueprint(profile_bp)
 
     @app.route("/health")
     def health():

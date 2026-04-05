@@ -111,6 +111,7 @@ from constants.onboarding import (
     ENTRY_ROUTES,
     HOUSING_TYPES,
 )
+from services.ai_assessment_service import generate_ai_assessment
 
 onboarding_bp = Blueprint("onboarding", __name__)
 
@@ -207,7 +208,6 @@ def onboarding():
         db.session.add(profile)
 
     try:
-
         assessment = generate_ai_assessment(profile, user.language)
         profile.risk_score = assessment["risk_score"]
         profile.risk_level = assessment["risk_level"]
