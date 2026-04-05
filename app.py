@@ -14,12 +14,12 @@ def create_app():
     # Import models so SQLAlchemy knows about them
     from models.user import User, Profile, ActionProgress
 
-    # with app.app_context():
-    #     print("=== CREATE_APP RUNNING ===")
-    #     print("DB URI:", app.config.get("SQLALCHEMY_DATABASE_URI"))
-    #     print("Known tables:", list(db.metadata.tables.keys()))
-    #     db.create_all()
-    #     print("=== CREATE_ALL FINISHED ===")
+    with app.app_context():
+        print("=== CREATE_APP RUNNING ===")
+        print("DB URI:", app.config.get("SQLALCHEMY_DATABASE_URI"))
+        print("Known tables:", list(db.metadata.tables.keys()))
+        db.create_all()
+        print("=== CREATE_ALL FINISHED ===")
 
     swagger_bp = get_swaggerui_blueprint(
         "/docs",
