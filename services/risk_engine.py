@@ -13,7 +13,7 @@ def calculate_risk(profile) -> dict:
         score += 25
         flags.append("No auto insurance")
 
-    if not profile.has_health_insurance:
+    if (not profile.has_health_insurance):
         score += 25
         flags.append("No health insurance")
 
@@ -23,7 +23,7 @@ def calculate_risk(profile) -> dict:
 
     # Housing-related risk
     # New model means: if this is True, they likely need renters coverage
-    if profile.needs_renters_insurance:
+    if (profile.needs_renters_insurance  & (profile.housing_type != "dorm" | profile.housing_type != "family")):
         score += 10
         flags.append("May need renters insurance")
 
